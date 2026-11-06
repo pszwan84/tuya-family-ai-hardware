@@ -48,3 +48,10 @@
 - 本仓库源码与构建产物；
 - `.env.example`（不含真实密钥）；
 - 本文档、`docs/demo-script.md`、`docs/redline-checklist.md`、`docs/dp-model.md`、`docs/g0-record.md`。
+## 现场对齐补充（2026-11-06 晚）
+
+- 硬件基线改为 ESP32-S3-CAM（见 `docs/adr-001-esp32s3-field-alignment.md`）；`firmware/esp32s3/` 为参考实现，未编译。
+- 新增设备命令：`capture_now` / `set_capture_params` / `resync`，Web 设备页可直接下发。
+- 新增 `infra/scripts/import-photos.ts`：把现场或已有系统照片批量导入事件流水线。
+- Web 首页改为产品叙事页（念念 · KinRing / 各自生活，彼此看见），3 分钟脚本见 `docs/demo-script-3min.md`。
+- `现场/` 目录含明文令牌，已加入 `.gitignore`；建议在后台重新签发令牌。

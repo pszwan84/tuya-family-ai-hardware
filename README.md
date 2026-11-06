@@ -1,11 +1,14 @@
-# 家事 · 三代家庭 AI 亲情记录硬件
+# 念念 · KinRing / 家事
 
 把家人的日常，整理成彼此看得懂、愿意看的小事件。当前仓库是黑客松 P0 闭环的可运行实现：
 
 ```
-涂鸦开发板采集 → 自建服务受理 → 去重/聚类 → 事件提取 → 模板事件卡
+ESP32-S3-CAM 采集 → 自建服务受理 → 去重/聚类 → 事件提取 → 模板事件卡
 → 双角色叙述 → 本人确认分享 → 家人 Web 查看 → 个人/家庭时间线
 ```
+
+> 现场资料显示实物为 ESP32-S3-CAM，决策与差异见 `docs/adr-001-esp32s3-field-alignment.md`。
+> 涂鸦 TuyaOS 固件骨架保留为历史方案。
 
 ## 1. 快速开始
 
@@ -41,9 +44,10 @@ packages/contracts   zod 契约：信封、错误码、设备、素材、事件�
 packages/domain      纯规则：权限、状态机、风险、价值分、叙述模板、时间线游标
 packages/ai          VLM/图像 Provider（mock 默认，可切 OpenAI 兼容 / 通义万相）
 packages/pipeline    素材→事件→卡片流水线（API 与 worker 共用）
-firmware        涂鸦 TuyaOS 应用层骨架（需实物板卡验证）
-infra            Compose、演示脚本、Mock 设备
-docs            G0 记录、DP 模型、演示脚本、红线清单、交付说明
+firmware/esp32s3     ESP32-S3-CAM 参考固件（PlatformIO，未编译）
+firmware            TuyaOS 历史骨架
+infra            Compose、演示脚本、Mock 设备、照片导入
+docs            ADR、G0 记录、DP 模型、3 分钟/8 分钟演示脚本、红线清单、交付说明
 ```
 
 ## 3. 已验证内容
@@ -59,6 +63,7 @@ docs            G0 记录、DP 模型、演示脚本、红线清单、交付说�
 npx tsx infra/scripts/measure.ts     # 性能测量
 npx tsx infra/scripts/mock-device.ts offline
 npx tsx infra/scripts/mock-device.ts duplicate
+npx tsx infra/scripts/import-photos.ts <照片目录>   # 现场照片批量导入
 ```
 
 ### Redis 异步模式（可选）

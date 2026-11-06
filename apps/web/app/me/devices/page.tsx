@@ -44,6 +44,15 @@ export default function DevicesPage() {
     await queryClient.invalidateQueries({ queryKey: ['devices'] });
   }
 
+  async function sendCommand(device: Device, type: 'capture_now' | 'resync') {
+    await request(`/devices/${device.deviceId}/commands`, {
+      method: 'POST',
+      token: session!.token,
+      body: { type },
+    });
+    await queryClient.invalidateQueries({ queryKey: ['devices'] });
+  }
+
   if (!ready || !session) return <div className="state">正在加载…</div>;
 
   const devices = query.data?.data.items ?? [];
@@ -86,11 +95,17 @@ export default function DevicesPage() {
           {!device.online ? <div className="notice">设备当前离线。指令会在设备上线后生效。</div> : null}
           {device.pendingOnOnline ? <div className="notice">有一项设置等待设备上线后生效。</div> : null}
           <div className="row">
+            <button className="btn btn-primary" onClick={() => void sendCommand(device, 'capture_now')}>
+              拍一张
+            </button>
+            <button className="btn" onClick={() => void sendCommand(device, 'resync')}>
+              立即补传
+            </button>
             <button className="btn" onClick={() => void toggle(device)}>
               {device.collectState === 'enabled' ? '暂停采集' : '恢复采集'}
             </button>
-            <span className="muted">暂停后，设备重启仍保持暂停。</span>
           </div>
+          <span className="muted">暂停后，设备重启仍保持暂停；指令最多 10 秒生效。</span>
         </div>
       ))}
     </div>

@@ -57,4 +57,11 @@ export class DeviceController {
   commands(@Param('deviceId') deviceId: string, @CurrentClaims() claims: AnyClaims) {
     return this.devices.commands(deviceId, claims);
   }
+
+  @Post(':deviceId/commands')
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard)
+  sendCommand(@Param('deviceId') deviceId: string, @CurrentClaims() claims: AnyClaims, @Body() body: unknown) {
+    return this.devices.sendCommand(deviceId, claims, body);
+  }
 }

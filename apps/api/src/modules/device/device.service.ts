@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import { JwtService } from '@nestjs/jwt';
 import { heartbeatSchema, patchDeviceSchema, type Heartbeat } from '@fah/contracts';
+import { z } from 'zod';
 import { ApiError } from '../../common/api-error';
 import type { AnyClaims, DeviceClaims } from '../../common/auth';
 import { ConfigService } from '../../infra/config.service';
@@ -227,6 +228,12 @@ export class DeviceService {
       orderBy: { createdAt: 'asc' },
       take: 20,
     });
+    if (commands.length > 0) {
+      await this.prisma.deviceCommand.updateMany({
+        where: { commandId: { in: commands.map((command) => command.commandId) } },
+        data: { status: 'sent' },
+      });
+    }
     return {
       commands: commands.map((command) => ({
         id: command.commandId,
@@ -235,6 +242,42 @@ export class DeviceService {
         version: command.version,
       })),
     };
+  }
+
+  async sendCommand(deviceId: string, claims: AnyClaims, body: unknown) {
+    const device = await this.deviceOf(deviceId, claims);
+    const input = z
+      .object({
+        type: z.enum(['capture_now', 'set_capture_params', 'resync']),
+        payload: z.record(z.unknown()).optional(),
+      })
+      .parse(body);
+
+    const command = await this.prisma.deviceCommand.create({
+      data: {
+        familyId: device.familyId,
+        deviceId: device.deviceId,
+        type: input.type,
+        payload: (input.payload ?? {}) as object,
+        version: device.desiredVersion,
+        status: 'pending',
+      },
+    });
+
+    await this.prisma.auditLog.create({
+      data: {
+        familyId: device.familyId,
+        actorId: claims.type === 'user' ? claims.sub : device.ownerId,
+        action: `device.command.${input.type}`,
+        targetType: 'Device',
+        targetId: device.deviceId,
+      },
+    });
+
+    const online = device.lastSeenAt
+      ? Date.now() - device.lastSeenAt.getTime() <= this.config.deviceOfflineSec * 1000
+      : false;
+    return { commandId: command.commandId, status: 'pending', effective: online ? 'applied' : 'pending_on_online' };
   }
 
   async createActivationCode(familyId: string, ownerId: string, tuyaDeviceId: string) {

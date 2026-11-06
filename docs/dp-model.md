@@ -1,5 +1,9 @@
 # 涂鸦 DP 模型（产品 PID 冻结）
 
+> 状态：历史参考。现场硬件已切换为 ESP32-S3-CAM，设备控制改走 REST 命令
+> （`GET/POST /api/v1/devices/{id}/commands`，10 秒轮询），DP 仅保留给涂鸦路线。
+> 决策见 `docs/adr-001-esp32s3-field-alignment.md`。
+
 > 依据：TuyaOS 统一 DP 模型。**DP 类型定义后不可修改，只能新增**；调参走 raw JSON 字段。
 
 | DP | 标识 | 类型 | 方向 | 语义 | 需求 |
