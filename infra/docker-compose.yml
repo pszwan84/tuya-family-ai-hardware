@@ -1,0 +1,102 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: fah-postgres
+    environment:
+      POSTGRES_USER: fah
+      POSTGRES_PASSWORD: fah
+      POSTGRES_DB: fah
+    ports:
+      - "5433:5432"
+    volumes:
+      - fah-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fah -d fah"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    container_name: fah-redis
+    ports:
+      - "6380:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: fah-api
+    command: ["sh", "-c", "npx prisma db push --skip-generate && node apps/api/dist/main.js"]
+    environment:
+      NODE_ENV: production
+      PORT: "3001"
+      DEMO_MODE: "true"
+      DEMO_SWITCH_KEY: demo-switch-key
+      JWT_SECRET: fah-demo-secret-change-me
+      DATABASE_URL: postgresql://fah:fah@postgres:5432/fah?schema=public
+      REDIS_URL: redis://redis:6379
+      QUEUE_FALLBACK: redis
+      STORAGE_DIR: /app/data/storage
+      STORAGE_SECRET: fah-demo-storage-secret
+      PUBLIC_BASE_URL: http://localhost:3001/api/v1
+      AI_MODE: mock
+      CARD_MODE: template
+      WEB_ORIGIN: http://localhost:3000
+    ports:
+      - "3001:3001"
+    volumes:
+      - fah-storage:/app/data/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: fah-worker
+    command: ["node", "apps/worker/dist/index.js"]
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://fah:fah@postgres:5432/fah?schema=public
+      REDIS_URL: redis://redis:6379
+      STORAGE_DIR: /app/data/storage
+      STORAGE_SECRET: fah-demo-storage-secret
+      PUBLIC_BASE_URL: http://api:3001/api/v1
+      AI_MODE: mock
+      CARD_MODE: template
+    volumes:
+      - fah-storage:/app/data/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: fah-web
+    command: ["node", "node_modules/next/dist/bin/next", "start", "apps/web", "-p", "3000"]
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_BASE: http://localhost:3001/api/v1
+      NEXT_PUBLIC_DEMO_KEY: demo-switch-key
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+
+volumes:
+  fah-pg:
+  fah-storage:

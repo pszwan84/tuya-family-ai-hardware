@@ -1,0 +1,350 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  grandparent
+  middle
+  child
+}
+
+enum EventType {
+  first_time
+  small_change
+  small_achievement
+  small_joy
+  shareable
+  shared_memory
+}
+
+enum EventStatus {
+  draft
+  shared
+  revoked
+  ignored
+  deleted
+}
+
+enum RiskLevel {
+  none
+  sensitive
+  high
+}
+
+enum ConfidenceLevel {
+  high
+  low
+}
+
+enum RenderMode {
+  ai
+  template
+  text
+}
+
+enum AssetType {
+  photo
+  video
+}
+
+enum AssetValidity {
+  unprocessed
+  valid
+  invalid
+  duplicate
+}
+
+enum ShareScope {
+  members
+  family
+}
+
+enum ShareStatus {
+  pending
+  confirmed
+  revoked
+}
+
+enum CollectState {
+  enabled
+  paused
+}
+
+model Family {
+  familyId         String   @id @default(cuid())
+  name             String
+  retentionDays    Int      @default(30)
+  defaultShareScope ShareScope @default(members)
+  createdAt        DateTime @default(now())
+  users            User[]
+  relations        Relation[]
+  devices          Device[]
+  assets           Asset[]
+  sessions         CaptureSession[]
+  events           Event[]
+  views            EventView[]
+  shares           Share[]
+  auditLogs        AuditLog[]
+  notifications    Notification[]
+}
+
+model User {
+  userId          String   @id @default(cuid())
+  familyId        String
+  displayName     String
+  role            Role
+  isMinor         Boolean  @default(false)
+  guardianId      String?
+  status          String   @default("active")
+  loginIdentifier String   @unique
+  passwordHash    String
+  createdAt       DateTime @default(now())
+  family          Family   @relation(fields: [familyId], references: [familyId])
+  devices         Device[]
+  ownedEvents     Event[]  @relation("EventOwner")
+  receivedViews   EventView[] @relation("ViewRecipient")
+  memberships     Relation[] @relation("RelationSubject")
+  settings        UserSettings?
+
+  @@index([familyId, role])
+}
+
+model UserSettings {
+  userId          String   @id
+  defaultScope    ShareScope @default(members)
+  retentionDays   Int      @default(30)
+  notifyFrequency String   @default("daily")
+  quietHours      Json?
+  user            User     @relation(fields: [userId], references: [userId])
+}
+
+model Relation {
+  relationId     String  @id @default(cuid())
+  familyId       String
+  subjectUserId  String
+  objectUserId   String
+  type           String
+  canViewShared  Boolean @default(true)
+  isGuardianship Boolean @default(false)
+  family         Family  @relation(fields: [familyId], references: [familyId])
+  subject        User    @relation("RelationSubject", fields: [subjectUserId], references: [userId])
+
+  @@unique([subjectUserId, objectUserId, type])
+}
+
+model Device {
+  deviceId        String   @id @default(cuid())
+  familyId        String
+  ownerId         String
+  tuyaDeviceId    String?  @unique
+  deviceKey       String
+  capability      Json?
+  collectState    CollectState @default(enabled)
+  policy          Json?
+  lastSeenAt      DateTime?
+  freeMB          Int      @default(0)
+  queueDepth      Int      @default(0)
+  fwVersion       String?
+  protoVersion    String?
+  privacyLed      String   @default("off")
+  reportedVersion Int      @default(0)
+  desiredVersion  Int      @default(0)
+  activationCode  String?  @unique
+  createdAt       DateTime @default(now())
+  family          Family   @relation(fields: [familyId], references: [familyId])
+  owner           User     @relation(fields: [ownerId], references: [userId])
+  assets          Asset[]
+  commands        DeviceCommand[]
+
+  @@index([familyId, ownerId])
+}
+
+model DeviceCommand {
+  commandId String   @id @default(cuid())
+  familyId  String
+  deviceId  String
+  type      String
+  payload   Json
+  version   Int      @default(1)
+  status    String   @default("pending")
+  createdAt DateTime @default(now())
+  device    Device   @relation(fields: [deviceId], references: [deviceId])
+
+  @@index([deviceId, status])
+}
+
+model Asset {
+  assetId          String   @id @default(cuid())
+  familyId         String
+  ownerId          String
+  deviceId         String
+  clientAssetId    String
+  captureSessionId String?
+  type             AssetType
+  capturedStartAt  DateTime
+  capturedEndAt    DateTime
+  receivedAt       DateTime @default(now())
+  trigger          String
+  contentHash      String
+  perceptualHash   String?
+  storageKey       String
+  privacyLevel     String   @default("normal")
+  validity         AssetValidity @default(unprocessed)
+  invalidReason    String?
+  qualityFlags     Json?
+  expiresAt        DateTime?
+  deletedAt        DateTime?
+  family           Family   @relation(fields: [familyId], references: [familyId])
+  device           Device   @relation(fields: [deviceId], references: [deviceId])
+  session          CaptureSession? @relation(fields: [captureSessionId], references: [sessionId])
+
+  @@unique([deviceId, clientAssetId])
+  @@index([familyId, ownerId, capturedStartAt])
+  @@index([familyId, perceptualHash])
+}
+
+model CaptureSession {
+  sessionId   String   @id @default(cuid())
+  familyId    String
+  ownerId     String
+  windowStart DateTime
+  windowEnd   DateTime
+  sceneLabel  String?
+  assetCount  Int      @default(0)
+  family      Family   @relation(fields: [familyId], references: [familyId])
+  assets      Asset[]
+  events      Event[]
+
+  @@index([familyId, ownerId, windowStart])
+}
+
+model Event {
+  eventId            String   @id @default(cuid())
+  familyId           String
+  ownerId            String
+  sessionId          String?
+  eventType          EventType
+  factsWho           String
+  factsAction        String
+  factsObject        String
+  factsScene         String
+  factsTime          String
+  description        String
+  confidence         Float
+  confidenceLevel    ConfidenceLevel
+  riskLevel          RiskLevel @default(none)
+  riskItems          Json?
+  shareFreshness     Float    @default(0)
+  shareRelevance     Float    @default(0)
+  shareUnderstand    Float    @default(0)
+  shareIntent        Float    @default(0)
+  shareTotal         Float    @default(0)
+  status             EventStatus @default(draft)
+  visibility         String   @default("owner_only")
+  occurredAt         DateTime
+  cardId             String?
+  cardVersion        Int      @default(1)
+  cardRenderMode     RenderMode @default(template)
+  cardImageKey       String?
+  cardTitle          String   @default("")
+  cardWhatHappened   String   @default("")
+  generationStatus   String   @default("ok")
+  correctionVersion  Int      @default(0)
+  deletedAt          DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  family             Family   @relation(fields: [familyId], references: [familyId])
+  owner              User     @relation("EventOwner", fields: [ownerId], references: [userId])
+  session            CaptureSession? @relation(fields: [sessionId], references: [sessionId])
+  views              EventView[]
+  shares             Share[]
+
+  @@index([familyId, ownerId, status, occurredAt])
+  @@index([familyId, occurredAt])
+  @@index([ownerId, occurredAt])
+}
+
+model EventView {
+  viewId       String   @id @default(cuid())
+  familyId     String
+  eventId      String
+  recipientId  String
+  roleSnapshot String
+  version      Int      @default(1)
+  isCurrent    Boolean  @default(true)
+  title        String
+  whatHappened String
+  whyForYou    String
+  roleNote     String
+  imageKey     String?
+  aiAttribution Boolean @default(true)
+  createdAt    DateTime @default(now())
+  family       Family   @relation(fields: [familyId], references: [familyId])
+  event        Event    @relation(fields: [eventId], references: [eventId])
+  recipient    User     @relation("ViewRecipient", fields: [recipientId], references: [userId])
+
+  @@index([eventId, recipientId, isCurrent])
+  @@index([familyId, recipientId, isCurrent])
+}
+
+model Share {
+  shareId        String   @id @default(cuid())
+  familyId       String
+  eventId        String
+  ownerId        String
+  scope          ShareScope
+  recipientIds   Json
+  status         ShareStatus @default(confirmed)
+  idempotencyKey String
+  confirmedAt    DateTime?
+  revokedAt      DateTime?
+  operatorId     String?
+  createdAt      DateTime @default(now())
+  family         Family   @relation(fields: [familyId], references: [familyId])
+  event          Event    @relation(fields: [eventId], references: [eventId])
+
+  @@unique([familyId, idempotencyKey])
+  @@index([familyId, eventId, status])
+  @@index([familyId, status, confirmedAt])
+}
+
+model Notification {
+  notificationId String   @id @default(cuid())
+  familyId       String
+  recipientId    String
+  type           String
+  count          Int      @default(1)
+  payload        Json
+  windowStart    DateTime
+  createdAt      DateTime @default(now())
+  family         Family   @relation(fields: [familyId], references: [familyId])
+
+  @@index([familyId, recipientId, windowStart])
+}
+
+model AuditLog {
+  auditId   String   @id @default(cuid())
+  familyId  String
+  actorId   String
+  action    String
+  targetType String
+  targetId  String
+  before    Json?
+  after     Json?
+  createdAt DateTime @default(now())
+  family    Family   @relation(fields: [familyId], references: [familyId])
+
+  @@index([familyId, createdAt])
+  @@index([targetType, targetId])
+}
+
+model RuntimeConfig {
+  id     String @id @default("singleton")
+  value  Json
+  updatedAt DateTime @updatedAt
+}
