@@ -64,6 +64,8 @@ npx tsx infra/scripts/measure.ts     # 性能测量
 npx tsx infra/scripts/mock-device.ts offline
 npx tsx infra/scripts/mock-device.ts duplicate
 npx tsx infra/scripts/import-photos.ts <照片目录>   # 现场照片批量导入
+npx tsx infra/scripts/rehearsal.ts                 # 演示前彩排（含 16 项冒烟）
+npx tsx infra/scripts/export-fact-check.ts 5      # 导出事实核验表
 ```
 
 ### Redis 异步模式（可选）
