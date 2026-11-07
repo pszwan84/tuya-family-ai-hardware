@@ -14,10 +14,9 @@
 #define FAH_QUEUE_DIR "/fah/queue"
 
 #define FAH_PRIVACY_LED_PIN 48
-#define FAH_SD_CS_PIN 10
-#define FAH_SD_MOSI_PIN 11
-#define FAH_SD_MISO_PIN 13
-#define FAH_SD_SCLK_PIN 12
+#define FAH_SD_MMC_CLK 39
+#define FAH_SD_MMC_CMD 38
+#define FAH_SD_MMC_D0 40
 
 #define FAH_CAM_PIN_PWDN -1
 #define FAH_CAM_PIN_RESET -1

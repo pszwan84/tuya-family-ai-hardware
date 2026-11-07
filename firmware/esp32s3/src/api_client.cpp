@@ -1,7 +1,7 @@
 #include "api_client.h"
 
 #include <HTTPClient.h>
-#include <SD.h>
+#include <SD_MMC.h>
 #include <WiFiClient.h>
 #include <mbedtls/md.h>
 #include <mbedtls/sha256.h>
@@ -36,7 +36,7 @@ String ApiClient::hmacHex(const String& payload) {
 }
 
 String ApiClient::sha256File(const String& path) {
-  File file = SD.open(path, FILE_READ);
+  File file = SD_MMC.open(path, FILE_READ);
   if (!file) return String();
   mbedtls_sha256_context ctx;
   mbedtls_sha256_init(&ctx);
@@ -100,7 +100,7 @@ String ApiClient::buildMultipart(const String& boundary, const String& metadataJ
 bool ApiClient::uploadJpeg(const String& path, const String& clientAssetId, const String& capturedAt, const String& trigger, const String& sha256) {
   if (!ensureToken()) return false;
 
-  File file = SD.open(path, FILE_READ);
+  File file = SD_MMC.open(path, FILE_READ);
   if (!file) return false;
   size_t size = file.size();
   if (size == 0 || size > FAH_MAX_UPLOAD_BYTES) {

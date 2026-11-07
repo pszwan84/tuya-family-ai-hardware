@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <Preferences.h>
-#include <SD.h>
+#include <SD_MMC.h>
 #include <WiFi.h>
 #include <esp_camera.h>
 
@@ -69,7 +69,7 @@ static bool captureToSd(String& path, String& assetId) {
 
   assetId = String("cap_") + String(millis());
   path = String(FAH_QUEUE_DIR) + "/" + assetId + ".jpg";
-  File file = SD.open(path, FILE_WRITE);
+  File file = SD_MMC.open(path, FILE_WRITE);
   if (!file) {
     esp_camera_fb_return(frame);
     led(false);
@@ -83,7 +83,7 @@ static bool captureToSd(String& path, String& assetId) {
 }
 
 static void uploadQueue() {
-  File dir = SD.open(FAH_QUEUE_DIR);
+  File dir = SD_MMC.open(FAH_QUEUE_DIR);
   if (!dir) return;
   File entry = dir.openNextFile();
   while (entry) {
@@ -93,14 +93,14 @@ static void uploadQueue() {
     entry.close();
 
     String payload = path;
-    File file = SD.open(payload, FILE_READ);
+    File file = SD_MMC.open(payload, FILE_READ);
     if (!file) break;
     file.close();
 
     String sha = api.sha256File(payload);
     String capturedAt = isoNow();
     if (api.uploadJpeg(payload, clientAssetId, capturedAt, "scheduled", sha)) {
-      SD.remove(payload);
+      SD_MMC.remove(payload);
     } else {
       break;
     }
@@ -149,8 +149,9 @@ void setup() {
   while (WiFi.status() != WL_CONNECTED) delay(500);
 
   configTime(0, 0, "ntp.aliyun.com", "pool.ntp.org");
-  SD.begin(FAH_SD_CS_PIN);
-  SD.mkdir(FAH_QUEUE_DIR);
+  SD_MMC.setPins(FAH_SD_MMC_CLK, FAH_SD_MMC_CMD, FAH_SD_MMC_D0);
+  SD_MMC.begin("/sdcard", true);
+  SD_MMC.mkdir(FAH_QUEUE_DIR);
 
   if (!initCamera()) {
     Serial.println("camera init failed");
@@ -176,7 +177,7 @@ void loop() {
 
   if (now - lastHeartbeatAt >= FAH_HEARTBEAT_SEC * 1000UL) {
     lastHeartbeatAt = now;
-    File dir = SD.open(FAH_QUEUE_DIR);
+    File dir = SD_MMC.open(FAH_QUEUE_DIR);
     int depth = 0;
     if (dir) {
       File entry = dir.openNextFile();

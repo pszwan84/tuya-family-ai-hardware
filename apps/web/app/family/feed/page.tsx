@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { request } from '../../../lib/api';
 import { roleLabel, useSession } from '../../../lib/session';
 import { EventCard } from '../../../components/EventCard';
+import { GrowthCard } from '../../../components/GrowthCard';
 import { EmptyState, ErrorState, LoadingState } from '../../../components/States';
 
 type FamilyEvent = {
@@ -68,6 +69,8 @@ export default function FamilyFeedPage() {
         <h1 className="page-title">家人</h1>
         <p className="page-sub">家人愿意分享给你的日常。这里没有已读压力，也没有排名。</p>
       </div>
+
+      {overview.data ? <GrowthCard count={overview.data.data.newEventCount} /> : null}
 
       {overview.data ? (
         <div className="panel">
